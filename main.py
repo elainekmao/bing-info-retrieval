@@ -4,13 +4,14 @@
 
 import urllib2
 import base64
+import sys
 
 #Provide your account key here
 accountKey = 'bwAYwSBf2uhx9krPK9MKnnTatmEj0kZYg5FTjN/0IsU'
 accountKeyEnc = base64.b64encode(accountKey + ':' + accountKey)
 headers = {'Authorization': 'Basic ' + accountKeyEnc}
 
-def return_top_10 (query, precision):
+def main (query, precision):
     split_query = query.split()
     search_query = '%27'
     for word in split_query:
@@ -20,3 +21,5 @@ def return_top_10 (query, precision):
     response = urllib2.urlopen(req)
     content = response.read()
     print content
+
+if __name__ == "__main__": main(sys.argv[1], sys.argv[2])
