@@ -27,7 +27,10 @@ def main (precisionGoal, query):
         print "FEEDBACK SUMMARY"
         print "Query = " + query
         print "Precision = " + str(precisionFound)
-        if (float(precisionFound) < float(precisionGoal)):
+        if float(precisionFound) == 0:
+            print "Precision of results was 0. Terminating."
+            break
+        elif (float(precisionFound) < float(precisionGoal)):
             print "Still below the desired precision of " + str(precisionGoal)
             print "Indexing results..."
             for result in relevantArray:
@@ -43,7 +46,6 @@ def main (precisionGoal, query):
             new_query, first_new, second_new = rocchio(query,relevantArray,irrelevantArray,1,0.75,0.15) #Can change these values to optimize
             print "Augmenting by " + first_new + ' ' + second_new
             main(precisionGoal, new_query)
-            #Then call PrintResults again with new URL
             break #This break is here for debugging, will have to be removed
         else:
             print "Desired precision reached, done" 
