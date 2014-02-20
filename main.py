@@ -2,24 +2,28 @@
 #Advanced Database Systems
 #Programming Assignment 1
 
+#Import necessary libraries
 import urllib, urllib2
 import base64
 import sys, string, math
-from nltk.corpus import stopwords
+from nltk.corpus import stopwords #Uses NLTK 3.0 for stopwords library
 
-#Provide your account key here
+#Account key information 
 accountKey = 'bwAYwSBf2uhx9krPK9MKnnTatmEj0kZYg5FTjN/0IsU'
 accountKeyEnc = base64.b64encode(accountKey + ':' + accountKey)
 headers = {'Authorization': 'Basic ' + accountKeyEnc}
 
+#Main code that loops until target precision is met
 def main (precisionGoal, query):
     search_query = urllib.quote(query)
     bingUrl = 'https://api.datamarket.azure.com/Bing/Search/Web?Query=%27' + search_query + '%27&$top=10&$format=Atom'
     req = urllib2.Request(bingUrl, headers = headers)
     response = urllib2.urlopen(req)
     content = response.read()
+    #Initializes dictionaries to keep track of relevant and irrelevant results
     relevantArray = {}
     irrelevantArray = {}
+    #Call to printResults function
     precisionFound, relevantArray, irrelevantArray = printResults(content, precisionGoal, query, bingUrl)
 
     while True:
@@ -27,30 +31,37 @@ def main (precisionGoal, query):
         print "FEEDBACK SUMMARY"
         print "Query = " + query
         print "Precision = " + str(precisionFound)
+        #If precision@10 is 0, program terminates
         if float(precisionFound) == 0:
             print "Precision of results was 0. Terminating."
             break
+        #If precision@10 is less than the target, computes TF-IDF vectors for documents in relevantArray, irrelevantArray
+        #Calls rocchio program to compute new search terms
         elif (float(precisionFound) < float(precisionGoal)):
             print "Still below the desired precision of " + str(precisionGoal)
             print "Indexing results..."
             for result in relevantArray:
                 relevantArray[result] = tf(relevantArray[result])
-            idf(content.count('<entry>'))
+            idf(len(relevantArray))
             for result in relevantArray:
                 relevantArray[result] = tfidf(relevantArray[result], dfd)
             for result in irrelevantArray:
                 irrelevantArray[result] = tf(irrelevantArray[result])
-            idf(content.count('<entry>'))
+            idf(len(irrelevantArray))
             for result in irrelevantArray:
                 irrelevantArray[result] = tfidf(irrelevantArray[result], dfd)
+            #Uses alpha, beta and gamma values recommended in Chapter 9 of Introduction to Information Retrieval
             new_query, first_new, second_new = rocchio(query,relevantArray,irrelevantArray,1,0.75,0.15) #Can change these values to optimize
             print "Augmenting by " + first_new + ' ' + second_new
+            #Calls main function again with new_query as search query
             main(precisionGoal, new_query)
             break #This break is here for debugging, will have to be removed
+        #If desired precision@10 is reached, program terminates
         else:
             print "Desired precision reached, done" 
             break
 
+#printResults displays search results to user and collects user feedback
 def printResults(content, precisionGoal, query, bingUrl):
     print "Parameters:" 
     print "Client key = bwAYwSBf2uhx9krPK9MKnnTatmEj0kZYg5FTjN/0IsU"
@@ -61,6 +72,7 @@ def printResults(content, precisionGoal, query, bingUrl):
     print "Total no of results : " + str(noResults)  ### needs to handle cases when <10 results are returned 
     print "Bing Search Results: ======================"
     split_content = content.split('<entry>')
+    #Initializes dictionaries to keep track of relevant and irrelevant results
     relevantArray = {}
     irrelevantArray = {}
     i = -1
@@ -78,15 +90,19 @@ def printResults(content, precisionGoal, query, bingUrl):
             print "  Summary: " + summary_text
             print "]" + '\n'
             userInput = raw_input('Relevant (Y/N)? ')
+            #If result is relevant, adds to relevantArray
             if userInput == 'Y' or userInput == 'y':
                 relevantArray[url_text] = tokenize_text(title_text + ' ' + summary_text)
+            #If results is irrelevant, adds to irrelevantArray
             elif userInput == 'N' or userInput == 'n':
                 irrelevantArray[url_text] = tokenize_text(title_text + ' ' + summary_text)
             else:
                 break #Need to introduce error handling in case the user enters something other than Y/N
     return float(len(relevantArray))/float(noResults), relevantArray, irrelevantArray
 
+#Rocchio algorithm from Chapter 9 of Introduction to Information Retrieval
 def rocchio(query, relevantArray, irrelevantArray, alpha, beta, gamma):
+    #Initializes dictionaries to keep track of total weighted TF-IDF values across all results
     totalrelevant = {}
     totalirrelevant = {}
     total = {}
@@ -116,19 +132,26 @@ def rocchio(query, relevantArray, irrelevantArray, alpha, beta, gamma):
             total[word] = totalirrelevant[word]
         else:
             total[word] -= totalirrelevant[word]
+    #Initializes dictionary to keep track of weighted values for only the query words
     query_dict = {}
+    #For each word in the original query
     for word in query.split():
+        #Takes weighted TF-IDF value for query word in results
         if word in total:
             query_dict[word] = total[word]*alpha
             del total[word]
+        #This situation shouldn't arise, but if a query term does not appear in the top results at all
+        #We can set its weight to 0 so it will be ordered later in the new query
         else:
-            query_dict[word] = alpha
+            query_dict[word] = 0
+    #Selects two new words to add to the query dictionary
     first_new = max(total, key=total.get)
     query_dict[first_new] = total[first_new]
     del total[first_new]
     second_new = max(total, key=total.get)
     query_dict[second_new] = total[second_new]
     new_query = ''
+    #Orders words by maximum weighted value
     for i in range(len(query_dict)):
         new_query += ' ' + max(query_dict, key=total.get)
         del query_dict[max(query_dict, key=total.get)]
@@ -136,10 +159,9 @@ def rocchio(query, relevantArray, irrelevantArray, alpha, beta, gamma):
     return new_query, first_new, second_new
 
 #Initializes dictionary to keep track of document frequency
-
 dfd = {}
 
-#Tokenizes the text of each document
+#Tokenizes the text of each document, removes stopwords
 def tokenize_text (text):
     lowercase_text = text.lower()
     unhyphenated = string.replace(lowercase_text, "-", " ")
