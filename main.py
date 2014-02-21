@@ -89,15 +89,19 @@ def printResults(content, precisionGoal, query, bingUrl):
             print "  Title: " + title_text
             print "  Summary: " + summary_text
             print "]" + '\n'
-            userInput = raw_input('Relevant (Y/N)? ')
-            #If result is relevant, adds to relevantArray
-            if userInput == 'Y' or userInput == 'y':
-                relevantArray[url_text] = tokenize_text(title_text + ' ' + summary_text)
-            #If results is irrelevant, adds to irrelevantArray
-            elif userInput == 'N' or userInput == 'n':
-                irrelevantArray[url_text] = tokenize_text(title_text + ' ' + summary_text)
-            else:
-                break #Need to introduce error handling in case the user enters something other than Y/N
+            while True: 
+                userInput = raw_input('Relevant (Y/N)? ')
+                #If result is relevant, adds to relevantArray
+                if userInput == 'Y' or userInput == 'y':
+                    relevantArray[url_text] = tokenize_text(title_text + ' ' + summary_text)
+                    break
+                #If results is irrelevant, adds to irrelevantArray
+                elif userInput == 'N' or userInput == 'n':
+                    irrelevantArray[url_text] = tokenize_text(title_text + ' ' + summary_text)
+                    break
+                #Error handling in case the user enters something other than Y/N
+                else:
+                    print "Please enter 'Y' or 'N'. Upper and lowercase supported." 
     return float(len(relevantArray))/float(noResults), relevantArray, irrelevantArray
 
 #Rocchio algorithm from Chapter 9 of Introduction to Information Retrieval
@@ -210,6 +214,8 @@ def tf (doc):
 def idf (doc_count):
     for key in dfd:
         dfd[key] = math.log10(float(doc_count) / float(dfd[key]))
+        if (dfd[key] <= 0.0):  #prevents future division by 0
+            dfd[key] = 100     #assigns very high weight to terms that appear in all documents
     return dfd
 
 #Calculates TF-IDF vector for a document
